@@ -1,0 +1,2 @@
+var d=document,more=function(){var t = d.getElementsByTagName("script");for(var i = t.length; --i>=0;){if(t[i].src.indexOf("fubar.js") >= 0){var new_div = document.createElement("div");new_div.innerHTML = fubar.join(", ");t[i].parentNode.insertBefore(new_div,t[i]);t[i].parentNode.removeChild(t[i]);}}},fubar =
+["test"];more();
