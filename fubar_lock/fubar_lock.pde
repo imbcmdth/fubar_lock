@@ -2,22 +2,25 @@
 
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 byte ip[] = { 10, 0, 0, 177 };
-byte server[] = { 8, 12, 42, 228 }; // stackulator.com
+byte server_ip[] = { 8, 12, 42, 228 }; // stackulator.com
+char server_name[] = "stackulator.com";
 
-Client client(server, 80);
+Client client(server_ip, 80);
 
 void setup() {
   Serial.begin(9600);                                 // connect to the serial port
+
+  // int initial_count =  fetchWithNothing();
+  // TODO: Setup 7-segment LED display
 }
 
 void loop () {
-	
-  byte i = 0;
   byte val = 0;
   byte code[6];
   byte checksum = 0;
   byte bytesread = 0;
   byte tempbyte = 0;
+  int code_count = 0;
 
   if(Serial.available() > 0) {
     if((val = Serial.read()) == 2) {                  // check for header 
@@ -44,10 +47,10 @@ void loop () {
 
             if (bytesread >> 1 != 5) {                // If we're at the checksum byte,
               checksum ^= code[bytesread >> 1];       // Calculate the checksum... (XOR)
-            };
+            }
           } else {
             tempbyte = val;                           // Store the first hex digit first...
-          };
+          }
 
           bytesread++;                                // ready to read next digit
         } 
@@ -56,39 +59,74 @@ void loop () {
       // Output to Serial:
 
       if (bytesread == 12) {                          // if 12 digit read is complete
-				Serial.println("connecting...");
-				
-				if (client.connect()) {
-					Serial.println("connected");
-					client.print("GET /fubar/fubar.php?rfid=");
-	        for (i=0; i<5; i++) {
-	          if (code[i] < 16) client.print("0");
-	          client.print(code[i], HEX);
-	        }
-					client.print(" HTTP/1.0\n");
-					client.println("Host: stackulator.com");
-					client.println();
-				} else {
-					Serial.println("connection failed");
-				}
+        code_count = fetchWithRFID(code);
+        Serial.print("Active RFID count: ");
+        Serial.print(code_count);
         Serial.println();
-				while(true) {
-					if (client.available()) {
-						char c = client.read();
-						Serial.print(c);
-						continue;
-					}
-
-					if (!client.connected()) {
-						Serial.println();
-						Serial.println("disconnecting.");
-						client.stop();
-					}
-	      }
-	    }
-      bytesread = 0;
+      // TODO: Setup 7-segment LED display
+      }
     }
   }
-  
 }
 
+int fetchWithRFID(byte *code){
+  byte i = 0;
+  int code_count = 0;
+  Serial.println("connecting...");
+  
+  if (client.connect()) {
+    Serial.println("connected");
+    client.print("GET /fubar/fubar.php?rfid=");
+    for (i=0; i<5; i++) {
+      if (code[i] < 16) client.print("0");
+      client.print(code[i], HEX);
+    }
+    client.println(" HTTP/1.1");
+    client.print("Host: ");
+    client.println(server_name);
+    client.println();
+  } else {
+    Serial.println("connection failed");
+  }
+  Serial.println();
+
+  return getCount();  
+}
+
+int fetchWithNothing(){
+  Serial.println("connecting...");
+  
+  if (client.connect()) {
+    Serial.println("connected");
+    client.println("GET /fubar/fubar.php HTTP/1.1");
+    client.print("Host: ");
+    client.println(server_name);
+    client.println();
+  } else {
+    Serial.println("connection failed");
+  }
+  Serial.println();
+  
+  return getCount();  
+}
+
+int getCount(){
+  int code_count = 0;
+  while(true) {
+    if (client.available()) {
+      char c = client.read();
+      if(c == ':') {
+        code_count = 0;
+      }  else if ((c >= '0') && (c <= '9')) {
+        code_count = (code_count * 10) + (c - '0');
+      }
+      continue;
+    }
+    
+    if (!client.connected()) {
+      Serial.println("disconnecting.");
+      client.stop();
+      return code_count;
+    }
+  }  
+}
